@@ -1,22 +1,23 @@
-import 'dotenv/config'
+import "dotenv/config";
+import { z } from "zod";
 
-import { runLLM } from './src/llm'
-import { addMessages, getMessages } from './src/memory';
+import { runAgent } from "./src/agent";
 
-const userMessage = process.argv[2]
-
+const userMessage = process.argv[2];
 if (!userMessage) {
-	console.error('Please provide a message');
-	process.exit(1);
+  console.error("Please provide a message");
+  process.exit(1);
 }
 
-await addMessages([{ role: "user", content: userMessage }])
-const messages = await getMessages();
+const weatherTool = {
+  name: "get_weather",
+  description: "Use this to get the weather",
+  parameters: z.object({
+    reasoning: z.string().describe('Why did you pick this tool?'),
+  }),
+};
 
-const response = await runLLM({
-	messages
-})
-await addMessages([{ role: "assistant", content: response }])
-
-
-console.log(response)
+await runAgent({
+  userMessage,
+  tools: [weatherTool],
+});
