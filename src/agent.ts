@@ -1,4 +1,3 @@
-import type { AIMessage } from "../types";
 import { addMessages, getMessages, saveToolResponse } from "./memory";
 import { runLLM } from "./llm";
 import { logMessage, showLoader } from "./ui";
@@ -19,24 +18,26 @@ export const runAgent = async ({
   ]);
 
   const loader = showLoader("Thinking...");
-  const messages = await getMessages();
 
-  const response = await runLLM({
-    messages,
-    tools,
-  });
-  await addMessages([response]);
+  while (true) {
+    const messages = await getMessages();
+    const response = await runLLM({ messages, tools });
 
-  if (response.tool_calls) {
-    const toolCall = response.tool_calls[0];
-    loader.update(`executing: ${toolCall.function.name}`);
+    await addMessages([response]);
 
-    const toolResponse = await runTool(toolCall, userMessage);
-    await saveToolResponse(toolCall.id, toolResponse);
-    loader.update(`Done: ${toolCall.function.name}`);
+    if (response.content) {
+      loader.stop();
+      logMessage(response);
+      return getMessages();
+    }
+
+    if (response.tool_calls) {
+      const toolCall = response.tool_calls[0];
+      logMessage(response);
+      loader.update(`executing: ${toolCall.function.name}`);
+      const toolResponse = await runTool(toolCall, userMessage);
+      await saveToolResponse(toolCall.id, toolResponse);
+      loader.update(`Done: ${toolCall.function.name}`);
+    }
   }
-
-  logMessage(response);
-  loader.stop();
-  return getMessages();
 };
